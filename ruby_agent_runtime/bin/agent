@@ -1,0 +1,47 @@
+#!/usr/bin/env ruby
+require "json"
+require_relative "../lib/rar"
+
+memory = RAR::Memory.new
+approvals = RAR::ApprovalStore.new
+tools = RAR::Tools.build(memory)
+runtime = RAR::Runtime.new(
+  model: RAR::DemoModel.new,
+  tools: tools,
+  policy: RAR::Policy.new,
+  approvals: approvals,
+  max_steps: 5
+)
+
+command = ARGV.shift
+case command
+when "run"
+  message = ARGV.join(" ")
+  abort 'Usage: bundle exec ruby bin/agent run "your message"' if message.empty?
+  puts JSON.pretty_generate(runtime.run(message))
+when "pending"
+  puts JSON.pretty_generate(approvals.pending)
+when "approve"
+  id = (ARGV.shift || abort("Usage: approve ID REVIEWER [note]")).to_i
+  reviewer = ARGV.shift || abort("Reviewer name required")
+  puts JSON.pretty_generate(runtime.approve(id, reviewer: reviewer, note: ARGV.join(" ")))
+when "reject"
+  id = (ARGV.shift || abort("Usage: reject ID REVIEWER [note]")).to_i
+  reviewer = ARGV.shift || abort("Reviewer name required")
+  puts JSON.pretty_generate(runtime.reject(id, reviewer: reviewer, note: ARGV.join(" ")))
+else
+  puts <<~HELP
+    Ruby Agent Runtime demo
+
+    run "message"              Run the agent loop
+    pending                    List pending human approvals
+    approve ID REVIEWER [note] Approve a pending tool call
+    reject ID REVIEWER [note]  Reject a pending tool call
+
+    Examples:
+      bundle exec ruby bin/agent run "What is 12 * 8?"
+      bundle exec ruby bin/agent run "Remember that I am learning Ruby"
+      bundle exec ruby bin/agent run "Search notes for Ruby"
+      bundle exec ruby bin/agent run "Delete all notes"
+  HELP
+end
